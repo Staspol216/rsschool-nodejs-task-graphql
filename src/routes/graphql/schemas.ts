@@ -41,7 +41,18 @@ const ProfileType = new GraphQLObjectType({
         isMale: { type: GraphQLBoolean },
         yearOfBirth: { type: GraphQLInt },
         userId: { type: UUIDType },
-        memberTypeId: { type: MemberTypeId }
+        memberTypeId: { type: MemberTypeId },
+        memberType: { 
+          type: MemberTypeType,
+          // async resolve(parent, args, context: GraphQLContext) {
+          //   const memberType = await context.db.memberType.findUnique({
+          //     where: {
+          //       id: parent.memberTypeId,
+          //     },
+          //   });
+          //   return memberType
+          // }
+        }
     })
 })
 
@@ -61,7 +72,12 @@ const UserType = new GraphQLObjectType({
     id: { type: UUIDType },
     name: { type: GraphQLString },
     balance: { type: GraphQLFloat },
-    profile: {type: ProfileType }
+    profile: { 
+      type: ProfileType,
+    },
+    posts: {
+      type: new GraphQLList(PostType),
+    }
   })
 })
 
@@ -92,7 +108,16 @@ export const RootQueryType = new GraphQLObjectType({
       users: {
         type: new GraphQLList(UserType),
         async resolve(parent, arg, context: GraphQLContext) {
-          return await context.db.user.findMany();
+          return await context.db.user.findMany({
+            include: {
+              profile: {
+                include: {
+                  memberType: true
+                }
+              },
+              posts: true
+            }
+          });
         }
       },
       profiles: {
@@ -132,6 +157,14 @@ export const RootQueryType = new GraphQLObjectType({
           const user = await context.db.user.findUnique({
             where: {
               id: args.id
+            },
+            include: {
+              profile: {
+                include: {
+                  memberType: true
+                }
+              },
+              posts: true
             }
           })
           return user
@@ -144,7 +177,7 @@ export const RootQueryType = new GraphQLObjectType({
           const profile = await context.db.profile.findUnique({
             where: {
               id: args.id
-            }
+            },
           })
           return profile
         }
