@@ -42,17 +42,7 @@ const ProfileType = new GraphQLObjectType({
         yearOfBirth: { type: GraphQLInt },
         userId: { type: UUIDType },
         memberTypeId: { type: MemberTypeId },
-        memberType: { 
-          type: MemberTypeType,
-          // async resolve(parent, args, context: GraphQLContext) {
-          //   const memberType = await context.db.memberType.findUnique({
-          //     where: {
-          //       id: parent.memberTypeId,
-          //     },
-          //   });
-          //   return memberType
-          // }
-        }
+        memberType: { type: MemberTypeType }
     })
 })
 
@@ -66,7 +56,7 @@ const PostType = new GraphQLObjectType({
   })
 })
 
-const UserType = new GraphQLObjectType({
+const UserType: GraphQLObjectType  = new GraphQLObjectType({
   name: 'User',
   fields: () => ({
     id: { type: UUIDType },
@@ -77,6 +67,34 @@ const UserType = new GraphQLObjectType({
     },
     posts: {
       type: new GraphQLList(PostType),
+    },
+    userSubscribedTo: {
+      type: new GraphQLList(UserType),
+      async resolve(parent: { id: string }, _, context: GraphQLContext) {
+        return context.db.user.findMany({
+          where: {
+            subscribedToUser: {
+              some: {
+                subscriberId: parent.id,
+              },
+            },
+          },
+        })
+      }
+    },
+    subscribedToUser: {
+      type: new GraphQLList(UserType),
+      async resolve(parent: { id: string }, _, context: GraphQLContext) {
+        return context.db.user.findMany({
+          where: {
+            userSubscribedTo: {
+              some: {
+                authorId: parent.id,
+              },
+            },
+          },
+        })
+      }
     }
   })
 })
@@ -95,19 +113,19 @@ export const RootQueryType = new GraphQLObjectType({
     fields: {
       memberTypes: {
         type: new GraphQLList(MemberTypeType),
-        async resolve(parent, arg, context: GraphQLContext) {
+        async resolve(_, arg, context: GraphQLContext) {
           return await context.db.memberType.findMany();
         }
       },
       posts: {
         type: new GraphQLList(PostType),
-        async resolve(parent, arg, context: GraphQLContext) {
+        async resolve(_, arg, context: GraphQLContext) {
           return await context.db.post.findMany();
         }
       },
       users: {
         type: new GraphQLList(UserType),
-        async resolve(parent, arg, context: GraphQLContext) {
+        async resolve(_, arg, context: GraphQLContext) {
           return await context.db.user.findMany({
             include: {
               profile: {
@@ -122,14 +140,14 @@ export const RootQueryType = new GraphQLObjectType({
       },
       profiles: {
           type: new GraphQLList(ProfileType),
-          async resolve(parent, arg, context: GraphQLContext) {
+          async resolve(_, arg, context: GraphQLContext) {
             return await context.db.profile.findMany();
           }
       },
       memberType: {
         type: MemberTypeType,
         args: { id: { type: MemberTypeId }},
-        async resolve(parent, args: { id: MemberId }, context: GraphQLContext) {
+        async resolve(_, args: { id: MemberId }, context: GraphQLContext) {
           const memberType = await context.db.memberType.findUnique({
             where: {
               id: args.id,
@@ -141,7 +159,7 @@ export const RootQueryType = new GraphQLObjectType({
       post: {
         type: PostType,
         args: { id: { type: UUIDType }},
-        async resolve(parent, args: { id: string }, context: GraphQLContext) {
+        async resolve(_, args: { id: string }, context: GraphQLContext) {
           const post = await context.db.post.findUnique({
             where: {
               id: args.id
@@ -153,7 +171,7 @@ export const RootQueryType = new GraphQLObjectType({
       user: {
         type: UserType,
         args: { id: { type: UUIDType }},
-        async resolve(parent, args: { id: string }, context: GraphQLContext) {
+        async resolve(_, args: { id: string }, context: GraphQLContext) {
           const user = await context.db.user.findUnique({
             where: {
               id: args.id
@@ -164,7 +182,7 @@ export const RootQueryType = new GraphQLObjectType({
                   memberType: true
                 }
               },
-              posts: true
+              posts: true,
             }
           })
           return user
@@ -173,7 +191,7 @@ export const RootQueryType = new GraphQLObjectType({
       profile: {
         type: ProfileType,
         args: { id: { type: UUIDType }},
-        async resolve(parent, args: { id: string }, context: GraphQLContext) {
+        async resolve(_, args: { id: string }, context: GraphQLContext) {
           const profile = await context.db.profile.findUnique({
             where: {
               id: args.id
@@ -186,6 +204,5 @@ export const RootQueryType = new GraphQLObjectType({
 })
 
 export const schema = new GraphQLSchema({
-  query: RootQueryType,
-  types: [MemberTypeId]
+  query: RootQueryType
 })
