@@ -2,6 +2,7 @@ import { Type } from '@fastify/type-provider-typebox';
 import { GraphQLBoolean, GraphQLEnumType, GraphQLFloat, GraphQLInputObjectType, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLObjectType, GraphQLSchema, GraphQLString } from 'graphql';
 import { GraphQLContext, UUIDType } from './types/uuid.js';
 import { randomUUID } from 'crypto';
+import { Void } from './types/void.js';
 
 export const gqlResponseSchema = Type.Partial(
   Type.Object({
@@ -24,14 +25,14 @@ export const createGqlResponseSchema = {
 
 enum MemberId {
   BASIC = 'basic',
-  BUSINESS = 'buisness',
+  BUSINESS = 'business',
 }
 
 const MemberTypeId = new GraphQLEnumType({
   name: 'MemberTypeId',
   values: {
     basic: {},
-    buisness: {},
+    business: {},
   },
 });
 
@@ -254,7 +255,7 @@ const CreateProfileInputType = new GraphQLInputObjectType({
   fields: () => ({
     isMale: { type: GraphQLBoolean },
     yearOfBirth: { type: GraphQLInt },
-    memberTypeId: { type: GraphQLString },
+    memberTypeId: { type: MemberTypeId },
     userId: { type: UUIDType }
   })
 });
@@ -264,14 +265,14 @@ const ChangeProfileInputType = new GraphQLInputObjectType({
   fields: () => ({
     isMale: { type: GraphQLBoolean },
     yearOfBirth: { type: GraphQLInt },
-    memberTypeId: { type: GraphQLString }
+    memberTypeId: { type: MemberTypeId }
   })
 });
 
 interface ProfileInput {
   isMale: boolean;
   yearOfBirth: number;
-  memberTypeId: string;
+  memberTypeId: MemberId;
   userId: string;
 }
 
@@ -416,6 +417,44 @@ const RootMutationType = new GraphQLObjectType({
             id: args.id,
           },
           data: args.dto
+        });
+      }
+    },
+    subscribeTo: {
+      type: UserType,
+      args: {
+        userId: { type: UUIDType },
+        authorId: { type: UUIDType }
+      },
+      async resolve(root, args: { userId: string, authorId: string }, context: GraphQLContext) {
+        return await context.db.user.update({
+          where: {
+            id: args.userId,
+          },
+          data: {
+            userSubscribedTo: {
+              create: {
+                authorId: args.authorId,
+              },
+            },
+          },
+        });
+      }
+    },
+    unsubscribeFrom: {
+      type: Void,
+      args: {
+        userId: { type: UUIDType },
+        authorId: { type: UUIDType }
+      },
+      async resolve(root, args: { userId: string, authorId: string }, context: GraphQLContext) {
+        await context.db.subscribersOnAuthors.delete({
+          where: {
+            subscriberId_authorId: {
+              subscriberId: args.userId,
+              authorId: args.authorId,
+            },
+          },
         });
       }
     }
